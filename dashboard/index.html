@@ -1,0 +1,366 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nanobricks Endpoint360 | Endpoint Management</title>
+    <meta name="description"
+          content="Nanobricks Endpoint360 interactive Windows endpoint assessment dashboard">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+<div class="app-layout">
+
+    <aside class="sidebar">
+        <div class="brand">
+            <div class="brand-icon">N</div>
+            <div class="brand-text">
+                <h2>Nanobricks</h2>
+                <span>ENDPOINT360</span>
+            </div>
+        </div>
+
+        <div class="sidebar-section-label">WORKSPACE</div>
+
+        <nav class="sidebar-nav" aria-label="Main navigation">
+            <a href="#overview" class="nav-item active">
+                <span class="nav-icon">&#9638;</span> Overview
+            </a>
+            <a href="#device" class="nav-item">
+                <span class="nav-icon">&#9635;</span> Device Inventory
+            </a>
+            <a href="#security" class="nav-item">
+                <span class="nav-icon">&#9671;</span> Security &amp; Compliance
+            </a>
+            <a href="#software" class="nav-item">
+                <span class="nav-icon">&#9776;</span> Software Inventory
+            </a>
+            <a href="#recommendations" class="nav-item">
+                <span class="nav-icon">&#9888;</span> Recommendations
+            </a>
+            <a href="#reports" class="nav-item">
+                <span class="nav-icon">&#9636;</span> Reports
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <p>Endpoint360 v0.2</p>
+            <span>Powered by Nanobricks</span>
+        </div>
+    </aside>
+
+    <main class="main-content">
+
+        <header class="topbar">
+            <div>
+                <span class="eyebrow">ENDPOINT SECURITY &amp; MANAGEMENT</span>
+                <h1>Endpoint360 Overview</h1>
+                <p class="page-description">
+                    Device inventory, security visibility and assessment insights.
+                </p>
+            </div>
+            <div class="topbar-actions">
+                <span class="mode-badge">READ-ONLY ASSESSMENT</span>
+            </div>
+        </header>
+
+        <section id="overview" class="dashboard-section">
+            <div class="section-heading">
+                <div>
+                    <h2>Assessment Overview</h2>
+                    <p>Latest saved endpoint assessment</p>
+                </div>
+                <span id="data-status" class="status attention">
+                    Demonstration data
+                </span>
+            </div>
+
+            <div class="stats-grid">
+                <article class="stat-card">
+                    <span class="stat-label">Assessment Modules</span>
+                    <strong id="module-count">--</strong>
+                    <span class="stat-note">Successfully executed modules</span>
+                </article>
+
+                <article class="stat-card">
+                    <span class="stat-label">Installed Applications</span>
+                    <strong id="application-count">--</strong>
+                    <span class="stat-note">Detected software</span>
+                </article>
+
+                <article class="stat-card">
+                    <span class="stat-label">Available Updates</span>
+                    <strong id="update-count">--</strong>
+                    <span class="stat-note">Software updates requiring review</span>
+                </article>
+
+                <article class="stat-card">
+                    <span class="stat-label">Restricted Security Checks</span>
+                    <strong id="restricted-count">--</strong>
+                    <span class="stat-note">Checks requiring additional access</span>
+                </article>
+            </div>
+
+            <div class="panel-heading" style="margin-top: 28px;">
+                <h3>Assessment Insights</h3>
+                <span class="small-label">
+                    Collection status, not a compliance score
+                </span>
+            </div>
+
+            <div class="insights-grid">
+                <article class="panel insight-panel">
+                    <h3>Module Execution</h3>
+                    <div id="module-chart" class="chart-container">
+                        <p class="small-label">Waiting for assessment data</p>
+                    </div>
+                </article>
+
+                <article class="panel insight-panel">
+                    <h3>Security Check Visibility</h3>
+                    <div id="security-chart" class="chart-container">
+                        <p class="small-label">Waiting for assessment data</p>
+                    </div>
+                </article>
+            </div>
+
+            <div class="notice">
+                <strong>Assessment status is not a compliance score.</strong>
+                <p>
+                    Successful collection does not guarantee a secure configuration.
+                    Unknown or restricted controls require further verification.
+                </p>
+            </div>
+        </section>
+
+        <section id="device" class="dashboard-section">
+            <div class="section-heading">
+                <div>
+                    <h2>Device Inventory</h2>
+                    <p>Operating system, hardware and storage information</p>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="detail-grid">
+                    <div class="detail-item">
+                        <span>Computer Name</span>
+                        <strong id="computer-name">--</strong>
+                    </div>
+                    <div class="detail-item">
+                        <span>Operating System</span>
+                        <strong id="operating-system">--</strong>
+                    </div>
+                    <div class="detail-item">
+                        <span>Processor</span>
+                        <strong id="processor">--</strong>
+                    </div>
+                    <div class="detail-item">
+                        <span>Installed RAM</span>
+                        <strong id="ram">--</strong>
+                    </div>
+                    <div class="detail-item">
+                        <span>Storage Drives</span>
+                        <strong id="drive-count">--</strong>
+                    </div>
+                    <div class="detail-item">
+                        <span>Assessment Completed</span>
+                        <strong id="assessment-time">--</strong>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel" style="margin-top: 18px;">
+                <div class="panel-heading">
+                    <h3>Storage Inventory</h3>
+                </div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Drive</th>
+                                <th>Total Capacity</th>
+                                <th>Used Space</th>
+                                <th>Free Space</th>
+                            </tr>
+                        </thead>
+                        <tbody id="storage-table-body">
+                            <tr>
+                                <td colspan="4">Waiting for assessment data</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <section id="security" class="dashboard-section">
+            <div class="section-heading">
+                <div>
+                    <h2>Security &amp; Compliance</h2>
+                    <p>Security control visibility and assessment limitations</p>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-heading">
+                    <h3>Windows Security Controls</h3>
+                    <select id="security-filter" class="dashboard-select"
+                            aria-label="Filter security checks">
+                        <option value="all">All checks</option>
+                        <option value="collected">Collected</option>
+                        <option value="restricted">Restricted</option>
+                        <option value="other">Other / Unknown</option>
+                    </select>
+                </div>
+
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Security Control</th>
+                                <th>Collection Status</th>
+                                <th>Assessment Details</th>
+                            </tr>
+                        </thead>
+                        <tbody id="security-table-body">
+                            <tr>
+                                <td colspan="3">Waiting for assessment data</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="notice">
+                <strong>Compliance assessment is not yet available.</strong>
+                <p>
+                    Security control collection is supported.
+                    A policy-based compliance engine will be added separately.
+                </p>
+            </div>
+        </section>
+
+        <section id="software" class="dashboard-section">
+            <div class="section-heading">
+                <div>
+                    <h2>Software Inventory</h2>
+                    <p>Installed applications and available software updates</p>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-heading">
+                    <h3>Installed Applications</h3>
+                    <input
+                        id="software-search"
+                        class="dashboard-input"
+                        type="search"
+                        placeholder="Search application or publisher..."
+                        aria-label="Search installed software">
+                </div>
+
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Application</th>
+                                <th>Version</th>
+                                <th>Publisher</th>
+                            </tr>
+                        </thead>
+                        <tbody id="software-table-body">
+                            <tr>
+                                <td colspan="3">Waiting for assessment data</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="panel" style="margin-top: 18px;">
+                <div class="panel-heading">
+                    <h3>Available Software Updates</h3>
+                    <span class="small-label">No automatic installation</span>
+                </div>
+
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Application</th>
+                                <th>Installed Version</th>
+                                <th>Available Version</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="updates-table-body">
+                            <tr>
+                                <td colspan="4">Waiting for assessment data</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <section id="recommendations" class="dashboard-section">
+            <div class="section-heading">
+                <div>
+                    <h2>Recommendations</h2>
+                    <p>Prioritized assessment follow-up actions</p>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div id="recommendations-list">
+                    <p class="small-label">
+                        Recommendations will appear when supported findings
+                        are available from the assessment engine.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <section id="reports" class="dashboard-section">
+            <div class="section-heading">
+                <div>
+                    <h2>Assessment Reports</h2>
+                    <p>Review the latest assessment and export results</p>
+                </div>
+            </div>
+
+            <div class="panel report-panel">
+                <div>
+                    <h3>Endpoint360 Combined Assessment</h3>
+                    <p>
+                        Combined Python assessment report containing device
+                        inventory, Windows security and software information.
+                    </p>
+                    <span id="report-status" class="status attention">
+                        Waiting for report
+                    </span>
+                </div>
+
+                <div class="report-actions">
+                    <button id="download-json" class="dashboard-button"
+                            type="button" disabled>
+                        Download JSON
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <footer class="main-footer">
+            <span>&copy; Nanobricks — Endpoint360</span>
+            <span>Technology Services | Security | Endpoint Visibility</span>
+        </footer>
+
+    </main>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
