@@ -1,0 +1,35 @@
+# Nanobricks Endpoint360
+
+# Customer and device assessment reports
+reports/
+**/reports/
+
+# Sensitive configuration and credentials
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.pfx
+*.p12
+
+# Logs and temporary files
+*.log
+*.tmp
+*.bak
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Application builds
+build/
+dist/
+*.exe
+*.msi
+
+# Editors
+.vscode/
+.idea/
