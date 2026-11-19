@@ -1,10 +1,10 @@
 
 """
 Nanobricks Endpoint360
-Unified Assessment Launcher v0.1.0
+Unified Assessment Launcher v0.2.0
 
-Runs the existing Python assessment modules and combines
-their JSON reports into one Endpoint360 report.
+Runs four Python assessment modules and combines their
+JSON reports into one Endpoint360 report.
 
 Read-only assessment. No remediation.
 """
@@ -17,7 +17,7 @@ from datetime import datetime
 from pathlib import Path
 
 
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -39,6 +39,12 @@ MODULES = [
         "Script": BASE_DIR / "software" / "software_assessment.py",
         "ReportDirectory": BASE_DIR / "software" / "reports",
         "ReportPattern": "*-PythonSoftware-*.json",
+    },
+    {
+        "Name": "Windows Updates",
+        "Script": BASE_DIR / "updates" / "windows_updates.py",
+        "ReportDirectory": BASE_DIR / "updates" / "reports",
+        "ReportPattern": "*-PythonUpdates-*.json",
     },
 ]
 
@@ -74,7 +80,6 @@ def run_module(module):
             "Data": None,
         }
 
-    # Record the newest report before running the module.
     previous_report = find_latest_report(
         module["ReportDirectory"],
         module["ReportPattern"],
@@ -148,7 +153,6 @@ def run_module(module):
             "Data": None,
         }
 
-    # Do not accidentally reuse an older assessment report.
     current_path = str(latest_report.resolve())
     current_modified = latest_report.stat().st_mtime_ns
 
@@ -188,7 +192,7 @@ def main():
     print("=" * 60)
 
     print("\nAssessment mode: READ ONLY")
-    print("Running three Windows assessment modules...")
+    print(f"Running {len(MODULES)} Windows assessment modules...")
 
     started = datetime.now().astimezone()
 
@@ -200,7 +204,8 @@ def main():
     completed = datetime.now().astimezone()
 
     successful = sum(
-        1 for result in results.values()
+        1
+        for result in results.values()
         if result["Status"] == "Completed"
     )
 
