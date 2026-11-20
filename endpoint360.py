@@ -1,9 +1,9 @@
 
 """
 Nanobricks Endpoint360
-Unified Assessment Launcher v0.2.0
+Unified Assessment Launcher v0.3.0
 
-Runs four Python assessment modules and combines their
+Runs five Python assessment modules and combines their
 JSON reports into one Endpoint360 report.
 
 Read-only assessment. No remediation.
@@ -17,7 +17,7 @@ from datetime import datetime
 from pathlib import Path
 
 
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -45,6 +45,12 @@ MODULES = [
         "Script": BASE_DIR / "updates" / "windows_updates.py",
         "ReportDirectory": BASE_DIR / "updates" / "reports",
         "ReportPattern": "*-PythonUpdates-*.json",
+    },
+    {
+        "Name": "Advanced Security",
+        "Script": BASE_DIR / "security" / "advanced_security.py",
+        "ReportDirectory": BASE_DIR / "security" / "reports",
+        "ReportPattern": "*-AdvancedSecurity-*.json",
     },
 ]
 
