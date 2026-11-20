@@ -1,4 +1,4 @@
-
+﻿
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -33,6 +33,9 @@
             </a>
             <a href="#security" class="nav-item">
                 <span class="nav-icon">&#9671;</span> Security &amp; Compliance
+            </a>
+            <a href="#windows-updates" class="nav-item">
+                <span class="nav-icon">&#8635;</span> Windows Updates
             </a>
             <a href="#software" class="nav-item">
                 <span class="nav-icon">&#9776;</span> Software Inventory
@@ -234,15 +237,223 @@
                 </div>
             </div>
 
-            <div class="notice">
-                <strong>Compliance assessment is not yet available.</strong>
-                <p>
-                    Security control collection is supported.
-                    A policy-based compliance engine will be added separately.
-                </p>
-            </div>
+            <div class="panel" style="margin-top: 18px;">
+    <div class="panel-heading">
+        <h3>Security Compliance Assessment</h3>
+        <span id="compliance-status" class="status unknown">
+            Loading compliance...
+        </span>
+    </div>
+
+    <p class="small-label">
+        Nanobricks Endpoint Security Baseline v0.1.
+        Results are based on collected evidence.
+        Not a regulatory certification.
+    </p>
+
+    <div id="compliance-summary" class="stats-grid"
+         style="margin-top: 18px; margin-bottom: 18px;">
+
+        <article class="stat-card">
+            <span class="stat-label">Pass</span>
+            <strong id="compliance-pass">--</strong>
+        </article>
+
+        <article class="stat-card">
+            <span class="stat-label">Fail</span>
+            <strong id="compliance-fail">--</strong>
+        </article>
+
+        <article class="stat-card">
+            <span class="stat-label">Warning</span>
+            <strong id="compliance-warning">--</strong>
+        </article>
+
+        <article class="stat-card">
+            <span class="stat-label">Not Assessed</span>
+            <strong id="compliance-not-assessed">--</strong>
+        </article>
+    </div>
+
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Security Control</th>
+                    <th>Compliance Result</th>
+                    <th>Evidence</th>
+                    <th>Recommendation</th>
+                </tr>
+            </thead>
+            <tbody id="compliance-table-body">
+                <tr>
+                    <td colspan="4">
+                        Waiting for compliance data
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
         </section>
 
+        <section id="windows-updates" class="dashboard-section">
+
+            <div class="section-heading">
+                <div>
+                    <h2>Windows Updates</h2>
+                    <p>Operating system patch visibility, update history and restart assessment</p>
+                </div>
+
+                <span id="windows-update-status" class="status unknown">
+                    Waiting for assessment
+                </span>
+            </div>
+
+            <div class="stats-grid windows-stats-grid">
+
+                <article class="stat-card">
+                    <span class="stat-label">Pending Windows Updates</span>
+                    <strong id="windows-pending-count">--</strong>
+                    <span class="stat-note">Updates reported by Windows Update Agent</span>
+                </article>
+
+                <article class="stat-card">
+                    <span class="stat-label">Restart Required</span>
+                    <strong id="windows-restart-value">--</strong>
+                    <span class="stat-note">Based on collected restart indicators</span>
+                </article>
+
+                <article class="stat-card">
+                    <span class="stat-label">Update History</span>
+                    <strong id="windows-history-count">--</strong>
+                    <span class="stat-note">Total entries reported by Windows</span>
+                </article>
+
+                <article class="stat-card">
+                    <span class="stat-label">Last Successful Installation</span>
+                    <strong id="windows-last-success" class="windows-date-value">--</strong>
+                    <span class="stat-note">From the recent history sample</span>
+                </article>
+
+            </div>
+
+            <div class="panel windows-panel">
+
+                <div class="panel-heading">
+                    <h3>Pending Windows Updates</h3>
+                    <span class="small-label">Read-only assessment</span>
+                </div>
+
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Update Title</th>
+                                <th>KB Article</th>
+                                <th>Severity</th>
+                                <th>Downloaded</th>
+                                <th>Restart Flag</th>
+                            </tr>
+                        </thead>
+
+                        <tbody id="windows-pending-table">
+                            <tr>
+                                <td colspan="5">Waiting for assessment data</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+
+            <div class="panel windows-panel">
+
+                <div class="panel-heading">
+                    <h3>Restart Assessment</h3>
+                    <span id="windows-restart-status" class="status unknown">
+                        Unknown
+                    </span>
+                </div>
+
+                <div class="detail-grid">
+                    <div class="detail-item">
+                        <span>Restart Required</span>
+                        <strong id="windows-restart-detail">--</strong>
+                    </div>
+
+                    <div class="detail-item">
+                        <span>Indicators Detected</span>
+                        <strong id="windows-indicator-count">--</strong>
+                    </div>
+
+                    <div class="detail-item">
+                        <span>Indicators Checked</span>
+                        <strong id="windows-checked-count">--</strong>
+                    </div>
+                </div>
+
+                <div class="windows-indicators">
+                    <h4>Detected Restart Indicators</h4>
+                    <div id="windows-indicator-list" class="windows-indicator-list">
+                        <p class="small-label">Waiting for assessment data</p>
+                    </div>
+                </div>
+
+                <div id="windows-restart-errors" class="windows-error-list"></div>
+
+            </div>
+
+            <div class="panel windows-panel">
+
+                <div class="panel-heading">
+                    <h3>Recent Windows Update History</h3>
+
+                    <select id="windows-history-filter"
+                            class="dashboard-select"
+                            aria-label="Filter Windows Update history">
+                        <option value="all">All results</option>
+                        <option value="Succeeded">Succeeded</option>
+                        <option value="Failed">Failed</option>
+                        <option value="other">Other results</option>
+                    </select>
+                </div>
+
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Update</th>
+                                <th>Date</th>
+                                <th>Operation</th>
+                                <th>Result</th>
+                            </tr>
+                        </thead>
+
+                        <tbody id="windows-history-table">
+                            <tr>
+                                <td colspan="4">Waiting for assessment data</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p class="small-label windows-history-note">
+                    Displays up to 30 recent history entries collected by the assessment.
+                </p>
+
+            </div>
+
+            <div class="notice">
+                <strong>Windows Update assessment is read-only.</strong>
+                <p>
+                    Endpoint360 does not download or install updates,
+                    change Windows Update settings or restart the computer.
+                    Collection status does not establish patch compliance.
+                </p>
+            </div>
+
+        </section>
         <section id="software" class="dashboard-section">
             <div class="section-heading">
                 <div>
@@ -337,7 +548,7 @@
                     <h3>Endpoint360 Combined Assessment</h3>
                     <p>
                         Combined Python assessment report containing device
-                        inventory, Windows security and software information.
+                        inventory, Windows security, Windows updates and software information.
                     </p>
                     <span id="report-status" class="status attention">
                         Waiting for report
@@ -354,7 +565,7 @@
         </section>
 
         <footer class="main-footer">
-            <span>&copy; Nanobricks — Endpoint360</span>
+            <span>&copy; Nanobricks â€” Endpoint360</span>
             <span>Technology Services | Security | Endpoint Visibility</span>
         </footer>
 
@@ -362,5 +573,8 @@
 </div>
 
 <script src="app.js"></script>
+<script src="compliance.js"></script>
 </body>
 </html>
+
+
