@@ -1,4 +1,4 @@
-
+﻿
 /*
  * Nanobricks Endpoint360
  * Interactive Dashboard JavaScript v0.3.0
@@ -758,6 +758,300 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
+    // --------------------------------------------------------
+    // Windows Updates assessment
+    // --------------------------------------------------------
+
+    let windowsHistoryEntries = [];
+    let windowsHistoryAvailable = false;
+
+    function windowsStatusType(status) {
+        const value = String(status || "").toLowerCase();
+
+        if (value === "collected") return "collected";
+        if (value === "error" || value === "failed") return "failed";
+        if (value === "partial") return "attention";
+
+        return "unknown";
+    }
+
+    function windowsTextList(value) {
+        return array(value)
+            .map((item) => String(item))
+            .filter((item) => item.length > 0)
+            .join(", ");
+    }
+
+    function renderWindowsHistory() {
+        const body = $("windows-history-table");
+        if (!body) return;
+
+        clear(body);
+
+        if (!windowsHistoryAvailable) {
+            emptyTable(
+                "windows-history-table",
+                4,
+                "Windows Update history could not be collected"
+            );
+            return;
+        }
+
+        const filter = $("windows-history-filter");
+        const selected = filter ? filter.value : "all";
+
+        const visible = windowsHistoryEntries.filter((entry) => {
+            const result = String(entry.Result || "Unknown");
+
+            if (selected === "all") return true;
+            if (selected === "other") {
+                return result !== "Succeeded" &&
+                    result !== "Failed";
+            }
+
+            return result === selected;
+        });
+
+        if (!visible.length) {
+            emptyTable(
+                "windows-history-table",
+                4,
+                windowsHistoryEntries.length
+                    ? "No history entries match this filter"
+                    : "No recent update history entries available"
+            );
+            return;
+        }
+
+        visible.forEach((entry) => {
+            const row = document.createElement("tr");
+
+            addCell(row, entry.Title);
+            addCell(row, formatDate(entry.Date));
+            addCell(row, entry.Operation);
+
+            const result = String(entry.Result || "Unknown");
+
+            const type = result === "Succeeded"
+                ? "collected"
+                : result === "Failed"
+                    ? "failed"
+                    : "attention";
+
+            addStatusCell(row, result, type);
+
+            body.appendChild(row);
+        });
+    }
+
+    function renderWindowsUpdates(report) {
+        const module = getModule(report, "Windows Updates");
+        const data = getModuleData(report, "Windows Updates");
+
+        const pending = object(data.PendingUpdates);
+        const history = object(data.UpdateHistory);
+        const restart = object(data.RestartRequired);
+
+        const moduleReady = isCompleted(module);
+
+        const pendingReady = moduleReady &&
+            pending.Status === "Collected";
+
+        const historyReady = moduleReady &&
+            history.Status === "Collected";
+
+        const restartReady = moduleReady &&
+            (restart.Status === "Collected" ||
+             restart.Status === "Partial");
+
+        const pendingItems = array(pending.Updates);
+        const indicators = array(restart.Indicators);
+        const checked = array(restart.CheckedIndicators);
+        const errors = array(restart.Errors);
+
+        setBadge(
+            "windows-update-status",
+            moduleReady
+                ? "Assessment Available"
+                : "Assessment Unavailable",
+            moduleReady ? "collected" : "unknown"
+        );
+
+        setText(
+            "windows-pending-count",
+            pendingReady ? pending.Count : "--"
+        );
+
+        setText(
+            "windows-history-count",
+            historyReady ? history.Count : "--"
+        );
+
+        setText(
+            "windows-last-success",
+            historyReady && history.LastSuccessfulInstallation
+                ? formatDate(history.LastSuccessfulInstallation)
+                : "Not available"
+        );
+
+        const restartValue = restartReady
+            ? restart.Required
+            : null;
+
+        const restartLabel = restartValue === true
+            ? "Yes"
+            : restartValue === false
+                ? "No"
+                : "Unknown";
+
+        setText("windows-restart-value", restartLabel);
+        setText("windows-restart-detail", restartLabel);
+
+        setText(
+            "windows-indicator-count",
+            restartReady ? indicators.length : "--"
+        );
+
+        setText(
+            "windows-checked-count",
+            restartReady ? checked.length : "--"
+        );
+
+        setBadge(
+            "windows-restart-status",
+            restartValue === true
+                ? "Restart Indicated"
+                : restartValue === false
+                    ? "No Restart Indicated"
+                    : "Unknown",
+            restartValue === true
+                ? "attention"
+                : restartValue === false
+                    ? "collected"
+                    : "unknown"
+        );
+
+        // Pending updates table
+
+        const pendingBody = $("windows-pending-table");
+
+        if (pendingBody) {
+            clear(pendingBody);
+
+            if (!pendingReady) {
+                emptyTable(
+                    "windows-pending-table",
+                    5,
+                    display(
+                        pending.Error || data.CollectionError,
+                        "Pending update assessment unavailable"
+                    )
+                );
+            } else if (!pendingItems.length) {
+                emptyTable(
+                    "windows-pending-table",
+                    5,
+                    "No pending Windows updates reported"
+                );
+            } else {
+                pendingItems.forEach((update) => {
+                    const row = document.createElement("tr");
+
+                    addCell(row, update.Title);
+
+                    addCell(
+                        row,
+                        windowsTextList(update.KBArticles) || "â€”"
+                    );
+
+                    addCell(
+                        row,
+                        display(update.Severity, "Not specified")
+                    );
+
+                    addCell(
+                        row,
+                        display(update.IsDownloaded, "Unknown")
+                    );
+
+                    addStatusCell(
+                        row,
+                        update.RebootRequired === true
+                            ? "Yes"
+                            : update.RebootRequired === false
+                                ? "No"
+                                : "Unknown",
+                        update.RebootRequired === true
+                            ? "attention"
+                            : "unknown"
+                    );
+
+                    pendingBody.appendChild(row);
+                });
+            }
+        }
+
+        // Restart indicators
+
+        const indicatorList = $("windows-indicator-list");
+
+        if (indicatorList) {
+            clear(indicatorList);
+
+            if (!restartReady) {
+                indicatorList.appendChild(
+                    makeElement(
+                        "p",
+                        "small-label",
+                        "Restart assessment unavailable"
+                    )
+                );
+            } else if (!indicators.length) {
+                indicatorList.appendChild(
+                    makeElement(
+                        "p",
+                        "small-label",
+                        "No restart indicators detected"
+                    )
+                );
+            } else {
+                indicators.forEach((indicator) => {
+                    indicatorList.appendChild(
+                        makeElement(
+                            "span",
+                            "windows-indicator-chip",
+                            indicator
+                        )
+                    );
+                });
+            }
+        }
+
+        const errorList = $("windows-restart-errors");
+
+        if (errorList) {
+            clear(errorList);
+
+            errors.forEach((error) => {
+                errorList.appendChild(
+                    makeElement(
+                        "div",
+                        "windows-error-item",
+                        error
+                    )
+                );
+            });
+        }
+
+        // Recent update history
+
+        windowsHistoryAvailable = historyReady;
+        windowsHistoryEntries = historyReady
+            ? array(history.Entries)
+            : [];
+
+        renderWindowsHistory();
+    }
     function addRecommendation(title, description, status) {
         const list = $("recommendations-list");
         if (!list) return;
@@ -843,6 +1137,50 @@ document.addEventListener("DOMContentLoaded", () => {
             );
         }
 
+        const windowsModule = getModule(
+            report,
+            "Windows Updates"
+        );
+
+        const windowsData = getModuleData(
+            report,
+            "Windows Updates"
+        );
+
+        const windowsPending = object(
+            windowsData.PendingUpdates
+        );
+
+        const windowsRestart = object(
+            windowsData.RestartRequired
+        );
+
+        if (
+            isCompleted(windowsModule) &&
+            windowsPending.Status === "Collected" &&
+            Number(windowsPending.Count) > 0
+        ) {
+            addRecommendation(
+                `Review ${windowsPending.Count} pending Windows update(s)`,
+                "Review the pending operating system updates, " +
+                "their applicability and an approved maintenance " +
+                "window before installation.",
+                "attention"
+            );
+        }
+
+        if (
+            isCompleted(windowsModule) &&
+            windowsRestart.Required === true
+        ) {
+            addRecommendation(
+                "Review pending Windows restart",
+                "Windows restart indicators were detected. " +
+                "Confirm whether a restart is required and " +
+                "schedule it through the approved change process.",
+                "attention"
+            );
+        }
         const failed = securityControls.filter(
             (control) => control.status.type === "failed"
         );
@@ -902,14 +1240,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function setupNavigation() {
         const links = Array.from(
-            document.querySelectorAll(
-                ".sidebar-nav .nav-item"
-            )
+            document.querySelectorAll(".sidebar-nav .nav-item")
+        );
+
+        const sections = Array.from(
+            document.querySelectorAll(".dashboard-section")
         );
 
         function setActive(id) {
             links.forEach((link) => {
-                const active = link.getAttribute("href") === `#${id}`;
+                const active =
+                    link.getAttribute("href") === `#${id}`;
 
                 link.classList.toggle("active", active);
 
@@ -921,6 +1262,37 @@ document.addEventListener("DOMContentLoaded", () => {
             });
         }
 
+        function updateActiveFromScroll() {
+            if (!sections.length) return;
+
+            const position = window.scrollY + 180;
+
+            let activeSection = sections[0];
+
+            for (const section of sections) {
+                if (section.offsetTop <= position) {
+                    activeSection = section;
+                } else {
+                    break;
+                }
+            }
+
+            setActive(activeSection.id);
+        }
+
+        let scheduled = false;
+
+        function scheduleUpdate() {
+            if (scheduled) return;
+
+            scheduled = true;
+
+            window.requestAnimationFrame(() => {
+                updateActiveFromScroll();
+                scheduled = false;
+            });
+        }
+
         links.forEach((link) => {
             link.addEventListener("click", () => {
                 const id = link.getAttribute("href").slice(1);
@@ -928,43 +1300,32 @@ document.addEventListener("DOMContentLoaded", () => {
             });
         });
 
-        const sections = Array.from(
-            document.querySelectorAll(".dashboard-section")
-        );
+        window.addEventListener("scroll", scheduleUpdate, {
+            passive: true
+        });
 
-        if ("IntersectionObserver" in window) {
-            const observer = new IntersectionObserver(
-                (entries) => {
-                    const visible = entries
-                        .filter((entry) => entry.isIntersecting)
-                        .sort(
-                            (a, b) =>
-                                b.intersectionRatio -
-                                a.intersectionRatio
-                        );
+        window.addEventListener("resize", scheduleUpdate);
 
-                    if (visible.length) {
-                        setActive(visible[0].target.id);
-                    }
-                },
-                {
-                    rootMargin: "-10% 0px -55% 0px",
-                    threshold: [0, 0.1, 0.25, 0.5]
-                }
-            );
+        window.addEventListener("hashchange", () => {
+            const id = window.location.hash.slice(1);
 
-            sections.forEach((section) => {
-                observer.observe(section);
-            });
-        }
+            if (id && $(id)) {
+                setActive(id);
+            }
+
+            scheduleUpdate();
+        });
 
         const initial = window.location.hash.slice(1);
 
         if (initial && $(initial)) {
             setActive(initial);
+        } else {
+            updateActiveFromScroll();
         }
-    }
 
+        window.addEventListener("load", scheduleUpdate);
+    }
     function setupInteractions() {
         const securityFilter = $("security-filter");
 
@@ -984,6 +1345,14 @@ document.addEventListener("DOMContentLoaded", () => {
             );
         }
 
+        const windowsHistoryFilter = $("windows-history-filter");
+
+        if (windowsHistoryFilter) {
+            windowsHistoryFilter.addEventListener(
+                "change",
+                renderWindowsHistory
+            );
+        }
         const download = $("download-json");
 
         if (download) {
@@ -1061,6 +1430,7 @@ document.addEventListener("DOMContentLoaded", () => {
             renderSecurity();
             renderSoftware();
             renderUpdates(report);
+            renderWindowsUpdates(report);
             renderRecommendations(report);
 
             setBadge(
@@ -1075,7 +1445,15 @@ document.addEventListener("DOMContentLoaded", () => {
                 "collected"
             );
 
-            const download = $("download-json");
+            const windowsHistoryFilter = $("windows-history-filter");
+
+        if (windowsHistoryFilter) {
+            windowsHistoryFilter.addEventListener(
+                "change",
+                renderWindowsHistory
+            );
+        }
+        const download = $("download-json");
 
             if (download) {
                 download.disabled = false;
@@ -1124,6 +1502,8 @@ document.addEventListener("DOMContentLoaded", () => {
             emptyTable("security-table-body", 3, message);
             emptyTable("software-table-body", 3, message);
             emptyTable("updates-table-body", 4, message);
+            emptyTable("windows-pending-table", 5, message);
+            emptyTable("windows-history-table", 4, message);
         }
     }
 
@@ -1131,3 +1511,4 @@ document.addEventListener("DOMContentLoaded", () => {
     setupInteractions();
     loadAssessment();
 });
+
