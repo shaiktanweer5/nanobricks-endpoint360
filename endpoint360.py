@@ -1,9 +1,9 @@
 
 """
 Nanobricks Endpoint360
-Unified Assessment Launcher v0.4.0
+Unified Assessment Launcher v0.5.0
 
-Runs six Python assessment modules and combines their
+Runs seven Python assessment modules and combines their
 JSON reports into one Endpoint360 report.
 
 Read-only assessment. No remediation.
@@ -17,7 +17,7 @@ from datetime import datetime
 from pathlib import Path
 
 
-VERSION = "0.4.0"
+VERSION = "0.5.0"
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -57,6 +57,12 @@ MODULES = [
         "Script": BASE_DIR / "health" / "device_health.py",
         "ReportDirectory": BASE_DIR / "health" / "reports",
         "ReportPattern": "*-DeviceHealth-*.json",
+    },
+    {
+        "Name": "Network Security",
+        "Script": BASE_DIR / "network" / "network_security.py",
+        "ReportDirectory": BASE_DIR / "network" / "reports",
+        "ReportPattern": "*-NetworkSecurity-*.json",
     },
 ]
 
