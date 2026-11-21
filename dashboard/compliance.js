@@ -28,7 +28,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const row = document.createElement("tr");
         const cell = document.createElement("td");
 
-        cell.colSpan = 4;
+        cell.colSpan = 5;
         cell.textContent = message;
 
         row.appendChild(cell);
@@ -111,6 +111,23 @@ document.addEventListener("DOMContentLoaded", async () => {
             badge.textContent = status;
             statusCell.appendChild(badge);
             row.appendChild(statusCell);
+
+            const severityCell = document.createElement("td");
+            const severity = String(check.Severity ?? "Unknown");
+
+            const allowedSeverities = [
+                "Critical",
+                "High",
+                "Medium",
+                "Low"
+            ];
+
+            severityCell.textContent =
+                allowedSeverities.includes(severity)
+                    ? severity
+                    : "Unknown";
+
+            row.appendChild(severityCell);
 
             addCell(row, check.Evidence);
             addCell(row, check.Recommendation);
