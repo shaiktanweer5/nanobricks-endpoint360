@@ -1,7 +1,7 @@
 
 """
 Nanobricks Endpoint360
-Security Compliance Engine v0.1.0
+Security Compliance Engine v0.2.0
 
 Evaluates existing Windows Security assessment evidence.
 
@@ -27,7 +27,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -418,104 +418,453 @@ def load_latest_security_report():
     raise ValueError("No valid Windows Security report was found.")
 
 
-def main():
-    source_path, source = load_latest_security_report()
+# ============================================================
+# Endpoint360 Compliance Engine v0.2.0
+# Unified assessment evaluation
+# ============================================================
 
-    security = source["Security"]
+UNIFIED_REPORTS = ROOT / "reports"
+
+REQUIRED_MODULES = (
+    "Windows Security",
+    "Advanced Security",
+    "Device Health",
+    "Network Security",
+)
+
+SEVERITY = {
+    "Microsoft Defender": "Critical",
+    "Defender Signatures": "Medium",
+    "Windows Firewall": "High",
+    "TPM": "High",
+    "Secure Boot": "High",
+    "BitLocker": "High",
+    "User Account Control": "High",
+    "Remote Desktop": "High",
+    "Guest Account": "Medium",
+    "Built-in Administrator": "Medium",
+    "Local Password Policy": "High",
+    "SMBv1": "Critical",
+    "SMB Signing": "Medium",
+    "Physical Disk Health": "High",
+    "Disk Free Space": "Medium",
+    "Pending Restart": "Medium",
+    "Listening Services": "Medium",
+}
+
+
+def verdict(control, status, evidence, recommendation):
+    item = result(control, status, evidence, recommendation)
+    item["Severity"] = SEVERITY.get(control, "Medium")
+    return item
+
+
+def unknown(control, reason):
+    return verdict(
+        control,
+        "Not Assessed",
+        reason,
+        "Collect and verify the required evidence.",
+    )
+
+
+def section(report, name):
+    modules = report.get("Modules", {})
+    module = modules.get(name, {})
+
+    if not isinstance(module, dict):
+        return {}
+
+    if module.get("Status") != "Completed":
+        return {}
+
+    data = module.get("Data")
+
+    if not isinstance(data, dict):
+        return {}
+
+    if data.get("Module") != name:
+        return {}
+
+    if data.get("ComputerName") != report.get("ComputerName"):
+        return {}
+
+    return data
+
+
+def evidence_item(container, name):
+    item = container.get(name, {})
+
+    if not isinstance(item, dict):
+        return None
+
+    if item.get("Status") != "Collected":
+        return None
+
+    data = item.get("Data")
+
+    return data if isinstance(data, dict) else None
+
+
+def evaluate_advanced(report):
+    checks = []
+    security = report.get("Security", {})
+
+    uac = evidence_item(security, "UAC")
+
+    if uac is None or type(uac.get("EnableLUA")) is not int:
+        checks.append(unknown("User Account Control", "UAC evidence unavailable."))
+    elif uac["EnableLUA"] == 0:
+        checks.append(verdict(
+            "User Account Control", "Fail",
+            "UAC is disabled.",
+            "Review UAC settings against the approved baseline.",
+        ))
+    elif uac["EnableLUA"] == 1:
+        secure = uac.get("PromptOnSecureDesktop")
+        checks.append(verdict(
+            "User Account Control",
+            "Pass" if secure == 1 else "Warning",
+            f"UAC enabled; secure desktop setting: {secure}.",
+            "Maintain UAC and review secure desktop configuration.",
+        ))
+    else:
+        checks.append(unknown("User Account Control", "Unknown UAC setting."))
+
+    rdp = evidence_item(security, "RemoteDesktop")
+
+    if rdp is None or type(rdp.get("ConnectionsAllowed")) is not bool:
+        checks.append(unknown("Remote Desktop", "RDP evidence unavailable."))
+    elif rdp["ConnectionsAllowed"] is False:
+        checks.append(verdict(
+            "Remote Desktop", "Pass",
+            "Remote Desktop connections are disabled.",
+            "Keep RDP disabled unless business requirements justify access.",
+        ))
+    else:
+        checks.append(verdict(
+            "Remote Desktop", "Warning",
+            f"RDP enabled; NLA required: {rdp.get('NLARequired')}.",
+            "Restrict RDP to approved users and trusted networks.",
+        ))
+
+    users = evidence_item(security, "LocalUsers")
+
+    for control, account in (
+        ("Guest Account", "Guest"),
+        ("Built-in Administrator", "Administrator"),
+    ):
+        if users is None or not isinstance(users.get("Users"), list):
+            checks.append(unknown(control, "Local account inventory unavailable."))
+            continue
+
+        matching = [
+            u for u in users["Users"]
+            if isinstance(u, dict) and u.get("Name") == account
+        ]
+
+        if len(matching) != 1 or type(matching[0].get("Enabled")) is not bool:
+            checks.append(unknown(control, "Account state could not be verified."))
+        else:
+            enabled = matching[0]["Enabled"]
+            checks.append(verdict(
+                control,
+                "Warning" if enabled else "Pass",
+                f"Built-in {account} account enabled: {enabled}.",
+                "Keep built-in accounts disabled unless explicitly required.",
+            ))
+
+    policy = evidence_item(security, "PasswordPolicy")
+
+    if policy is None:
+        checks.append(unknown("Local Password Policy", "Policy evidence unavailable."))
+    else:
+        import re
+
+        raw = policy.get("RawOutput", "")
+        match = re.search(
+            r"Minimum password length:\s*(\d+)",
+            raw,
+            re.IGNORECASE,
+        )
+
+        if not match:
+            checks.append(unknown(
+                "Local Password Policy",
+                "Minimum password length could not be parsed.",
+            ))
+        else:
+            length = int(match.group(1))
+            checks.append(verdict(
+                "Local Password Policy",
+                "Warning" if length < 12 else "Pass",
+                f"Local minimum password length: {length}. "
+                "This does not establish Microsoft-account password policy.",
+                "Review the approved local password baseline and "
+                "applicable account authentication policies.",
+            ))
+
+    return checks
+
+
+def evaluate_health(report):
+    checks = []
+    health = report.get("Health", {})
+
+    restart = evidence_item(health, "PendingRestart")
+
+    if restart is None or type(restart.get("Required")) is not bool:
+        checks.append(unknown("Pending Restart", "Restart evidence unavailable."))
+    else:
+        required = restart["Required"]
+        checks.append(verdict(
+            "Pending Restart",
+            "Warning" if required else "Pass",
+            f"Restart required: {required}. "
+            f"Indicators: {restart.get('Indicators', [])}.",
+            "Schedule a restart after verifying operational requirements.",
+        ))
+
+    storage = evidence_item(health, "Storage")
+
+    if storage is None or not isinstance(storage.get("Drives"), list) \
+            or not storage["Drives"]:
+        checks.append(unknown("Disk Free Space", "Storage evidence unavailable."))
+    else:
+        drives = storage["Drives"]
+        percentages = []
+
+        for drive in drives:
+            if not isinstance(drive, dict):
+                continue
+            value = drive.get("FreePercentage")
+            if type(value) in (int, float) and 0 <= value <= 100:
+                percentages.append((drive.get("Drive", "?"), value))
+
+        if len(percentages) != len(drives):
+            checks.append(unknown("Disk Free Space", "Incomplete drive evidence."))
+        else:
+            low = [(name, value) for name, value in percentages if value < 15]
+            checks.append(verdict(
+                "Disk Free Space",
+                "Warning" if low else "Pass",
+                "Free space: " + ", ".join(
+                    f"{name} {value:.1f}%" for name, value in percentages
+                ),
+                "Maintain at least 15% free space on assessed volumes.",
+            ))
+
+    disks = evidence_item(health, "PhysicalDisks")
+
+    if disks is None or not isinstance(disks.get("Disks"), list) \
+            or not disks["Disks"]:
+        checks.append(unknown("Physical Disk Health", "Disk health unavailable."))
+    else:
+        entries = disks["Disks"]
+        statuses = [
+            str(d.get("HealthStatus", "")).lower()
+            for d in entries if isinstance(d, dict)
+        ]
+
+        if len(statuses) != len(entries) or any(
+            status in ("", "unknown") for status in statuses
+        ):
+            checks.append(unknown(
+                "Physical Disk Health",
+                "Incomplete Windows disk health evidence.",
+            ))
+        else:
+            unhealthy = [s for s in statuses if s != "healthy"]
+            checks.append(verdict(
+                "Physical Disk Health",
+                "Warning" if unhealthy else "Pass",
+                "Windows-reported disk health: " + ", ".join(statuses)
+                + ". Not a full SMART diagnostic.",
+                "Investigate unhealthy disks and maintain verified backups.",
+            ))
+
+    return checks
+
+
+def evaluate_network(report):
+    checks = []
+    network = report.get("Network", {})
+
+    smb = evidence_item(network, "SMBConfiguration")
+
+    if smb is None or type(smb.get("SMB1Enabled")) is not bool:
+        checks.append(unknown("SMBv1", "SMBv1 evidence unavailable."))
+    else:
+        enabled = smb["SMB1Enabled"]
+        checks.append(verdict(
+            "SMBv1",
+            "Fail" if enabled else "Pass",
+            f"SMBv1 enabled: {enabled}.",
+            "Disable SMBv1 after reviewing compatibility requirements.",
+        ))
+
+    if smb is None or type(smb.get("RequireSecuritySignature")) is not bool:
+        checks.append(unknown("SMB Signing", "SMB signing evidence unavailable."))
+    else:
+        required = smb["RequireSecuritySignature"]
+        checks.append(verdict(
+            "SMB Signing",
+            "Pass" if required else "Warning",
+            f"SMB server signing required: {required}.",
+            "Review SMB signing requirements and client compatibility.",
+        ))
+
+    ports = evidence_item(network, "ListeningPorts")
+
+    if ports is None or not isinstance(ports.get("Connections"), list):
+        checks.append(unknown(
+            "Listening Services",
+            "Listening socket evidence unavailable.",
+        ))
+    else:
+        connections = ports["Connections"]
+        sensitive = []
+
+        for entry in connections:
+            if not isinstance(entry, dict):
+                continue
+
+            address = entry.get("LocalAddress")
+            port = entry.get("LocalPort")
+
+            if address in ("0.0.0.0", "::") and port in (80, 135, 139, 445, 3389):
+                sensitive.append(f"{address}:{port}")
+
+        checks.append(verdict(
+            "Listening Services",
+            "Warning" if sensitive else "Pass",
+            "Potentially sensitive wildcard listeners: "
+            + (", ".join(sorted(set(sensitive))) if sensitive else "None observed")
+            + ". Local listening does not prove external reachability.",
+            "Verify service ownership, firewall restrictions and exposure.",
+        ))
+
+    return checks
+
+
+def load_unified_report():
+    files = sorted(
+        UNIFIED_REPORTS.glob("*-Endpoint360-*.json"),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+
+    if not files:
+        raise FileNotFoundError("No unified Endpoint360 report found.")
+
+    path = files[0]
+
+    with path.open("r", encoding="utf-8") as stream:
+        report = json.load(stream)
+
+    if not isinstance(report, dict):
+        raise ValueError("Invalid unified report.")
+
+    if report.get("Product") != "Nanobricks Endpoint360":
+        raise ValueError("Unexpected report product.")
+
+    if not report.get("ComputerName"):
+        raise ValueError("Computer name missing.")
+
+    if not isinstance(report.get("Modules"), dict):
+        raise ValueError("Module evidence missing.")
+
+    return path, report
+
+
+def main():
+    source_path, source = load_unified_report()
 
     checks = []
-    checks.extend(
-        evaluate_defender(security.get("Defender") or {})
-    )
 
-    checks.append(
-        evaluate_firewall(security.get("Firewall") or {})
-    )
+    security_report = section(source, "Windows Security")
+    security = security_report.get("Security", {})
 
-    checks.append(
-        evaluate_tpm(security.get("TPM") or {})
-    )
+    if not isinstance(security, dict):
+        security = {}
 
-    checks.append(
-        evaluate_secure_boot(security.get("SecureBoot") or {})
-    )
+    checks.extend(evaluate_defender(security.get("Defender") or {}))
+    checks.append(evaluate_firewall(security.get("Firewall") or {}))
+    checks.append(evaluate_tpm(security.get("TPM") or {}))
+    checks.append(evaluate_secure_boot(security.get("SecureBoot") or {}))
+    checks.append(evaluate_bitlocker(security.get("BitLocker") or {}))
 
-    checks.append(
-        evaluate_bitlocker(security.get("BitLocker") or {})
-    )
+    advanced = section(source, "Advanced Security")
+    health = section(source, "Device Health")
+    network = section(source, "Network Security")
+
+    checks.extend(evaluate_advanced(advanced))
+    checks.extend(evaluate_health(health))
+    checks.extend(evaluate_network(network))
+
+    for check in checks:
+        check["Severity"] = SEVERITY.get(check["Control"], "Medium")
 
     summary = {
         "Total": len(checks),
         "Pass": sum(c["Result"] == "Pass" for c in checks),
         "Fail": sum(c["Result"] == "Fail" for c in checks),
         "Warning": sum(c["Result"] == "Warning" for c in checks),
-        "NotAssessed": sum(
-            c["Result"] == "Not Assessed" for c in checks
-        ),
+        "NotAssessed": sum(c["Result"] == "Not Assessed" for c in checks),
     }
+
+    evaluated = summary["Total"] - summary["NotAssessed"]
+
+    score = round(100 * summary["Pass"] / evaluated, 1) if evaluated else None
+
+    summary["Evaluated"] = evaluated
+    summary["ComplianceScore"] = score
+    summary["ScoreMethod"] = (
+        "Pass / (Pass + Fail + Warning) * 100; "
+        "Not Assessed excluded. All evaluated controls weighted equally."
+    )
 
     report = {
         "Product": "Nanobricks Endpoint360",
         "Module": "Security Compliance",
         "Version": VERSION,
-        "ComputerName": source.get(
-            "ComputerName",
-            socket.gethostname(),
-        ),
-        "AssessmentTimeUTC": datetime.now(
-            timezone.utc
-        ).isoformat(),
+        "ComputerName": source["ComputerName"],
+        "AssessmentTimeUTC": datetime.now(timezone.utc).isoformat(),
         "AssessmentMode": "Read Only",
-        "Baseline": "Nanobricks Endpoint Security Baseline v0.1",
+        "Baseline": "Nanobricks Endpoint Security Baseline v0.2",
         "SourceReport": str(source_path),
         "Summary": summary,
         "Checks": checks,
         "Disclaimer": (
-            "Baseline assessment only. Not a regulatory "
-            "compliance certification."
+            "Configurable baseline assessment only. "
+            "Not a regulatory compliance certification. "
+            "Some findings require contextual validation."
         ),
     }
 
-    COMPLIANCE_REPORTS.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
+    COMPLIANCE_REPORTS.mkdir(parents=True, exist_ok=True)
 
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-
-    output_path = COMPLIANCE_REPORTS / (
-        f"{report['ComputerName']}-Compliance-{timestamp}.json"
+    output = COMPLIANCE_REPORTS / (
+        f"{source['ComputerName']}-Compliance-{timestamp}.json"
     )
 
-    output_path.write_text(
-        json.dumps(report, indent=4),
-        encoding="utf-8",
-    )
+    output.write_text(json.dumps(report, indent=4), encoding="utf-8")
 
-    print("=" * 55)
+    print("=" * 60)
     print(" NANOBRICKS ENDPOINT360")
-    print(" Security Compliance Engine v" + VERSION)
-    print("=" * 55)
-
-    print()
-    print("Baseline: Nanobricks Endpoint Security Baseline v0.1")
-    print("Mode: READ ONLY")
-    print()
+    print(f" Security Compliance Engine v{VERSION}")
+    print("=" * 60)
 
     for check in checks:
         print(f"{check['Control']}: {check['Result']}")
 
-    print()
-    print("SUMMARY")
-    print("-" * 55)
+    print("-" * 60)
 
-    for name, value in summary.items():
-        print(f"{name}: {value}")
+    for key, value in summary.items():
+        print(f"{key}: {value}")
 
-    print()
-    print(f"Source: {source_path}")
-    print(f"Report: {output_path}")
-    print()
+    print(f"\nReport: {output}")
     print("No Windows settings were modified.")
 
 
