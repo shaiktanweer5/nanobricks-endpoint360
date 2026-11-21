@@ -3,25 +3,71 @@
 
 """
 Nanobricks Endpoint360 Free
-Version: 0.5.0
-
-PyInstaller Build Configuration
-
-Purpose:
-    Build Endpoint360Runtime.exe for Windows.
-
-Build type:
-    Folder-based executable (onedir).
-
-The collector scripts, dashboard files, and other
-application resources are distributed alongside the EXE.
-
-The application performs read-only assessments.
+PyInstaller ONEFILE build.
 """
 
-# --------------------------------------------------
-# REQUIRED PYTHON MODULES
-# --------------------------------------------------
+from pathlib import Path
+
+PROJECT = Path(SPECPATH).resolve()
+
+SCRIPT_FILES = [
+    "launch_endpoint360.py",
+    "endpoint360.py",
+    "dashboard_server.py",
+]
+
+RESOURCE_FOLDERS = [
+    "collector",
+    "security",
+    "software",
+    "updates",
+    "health",
+    "network",
+    "compliance",
+    "dashboard",
+]
+
+datas = []
+
+for name in SCRIPT_FILES:
+    path = PROJECT / name
+    if not path.is_file():
+        raise FileNotFoundError(path)
+    datas.append((str(path), "."))
+
+for folder_name in RESOURCE_FOLDERS:
+    folder = PROJECT / folder_name
+
+    if not folder.is_dir():
+        raise FileNotFoundError(folder)
+
+    for path in folder.rglob("*"):
+        if not path.is_file():
+            continue
+
+        relative = path.relative_to(PROJECT)
+
+        # Reports are generated on the customer's computer.
+        # Never include development reports or caches.
+        if any(
+            part.lower() in {
+                "reports",
+                "__pycache__",
+                ".git",
+                "build",
+                "dist",
+            }
+            for part in relative.parts
+        ):
+            continue
+
+        if path.suffix.lower() in {".pyc", ".pyo"}:
+            continue
+
+        datas.append((
+            str(path),
+            str(relative.parent),
+        ))
 
 HIDDEN_IMPORTS = [
     "webbrowser",
@@ -38,66 +84,32 @@ HIDDEN_IMPORTS = [
     "runpy",
 ]
 
-
-# --------------------------------------------------
-# ANALYZE APPLICATION DEPENDENCIES
-# --------------------------------------------------
-
 a = Analysis(
     ["build_entry.py"],
-    pathex=[],
+    pathex=[str(PROJECT)],
     binaries=[],
-    datas=[],
+    datas=datas,
     hiddenimports=HIDDEN_IMPORTS,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
     excludes=[],
     noarchive=False,
-    optimize=0,
 )
 
-
-# --------------------------------------------------
-# PACKAGE PYTHON MODULES
-# --------------------------------------------------
-
 pyz = PYZ(a.pure)
-
-
-# --------------------------------------------------
-# CREATE THE WINDOWS EXECUTABLE
-# --------------------------------------------------
 
 exe = EXE(
     pyz,
     a.scripts,
+    a.binaries,
+    a.datas,
     [],
-    exclude_binaries=True,
-    name="Endpoint360Runtime",
+    name="NanobricksEndpoint360",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,
     console=True,
     disable_windowed_traceback=False,
-    argv_emulation=False,
-    target_arch=None,
-    codesign_identity=None,
-    entitlements_file=None,
-)
-
-
-# --------------------------------------------------
-# COLLECT EXECUTABLE AND DEPENDENCIES
-# --------------------------------------------------
-
-coll = COLLECT(
-    exe,
-    a.binaries,
-    a.datas,
-    strip=False,
-    upx=True,
-    upx_exclude=[],
-    name="Endpoint360Runtime",
 )

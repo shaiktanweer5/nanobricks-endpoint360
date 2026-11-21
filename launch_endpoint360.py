@@ -1,17 +1,14 @@
 
 """
 Nanobricks Endpoint360 Free
-Version: 0.5.0
+Single-EXE launcher.
 
-Purpose:
-1. Run the Windows endpoint assessment.
-2. Run the security compliance checks.
-3. Start the local dashboard.
-4. Open the dashboard in the browser.
-
-All assessments are read-only.
+Runs the assessment, compliance engine and local dashboard.
+Assessments are read-only.
 """
 
+import os
+import shutil
 import subprocess
 import sys
 import time
@@ -21,54 +18,32 @@ from pathlib import Path
 from urllib.request import urlopen
 
 
-# --------------------------------------------------
-# APPLICATION SETTINGS
-# --------------------------------------------------
-
 ROOT = Path(__file__).resolve().parent
 DASHBOARD_URL = "http://127.0.0.1:8765/"
-
 IS_PACKAGED = getattr(sys, "frozen", False)
 
 
-# --------------------------------------------------
-# BUILD THE COMMAND TO RUN A PYTHON SCRIPT
-# --------------------------------------------------
-
 def get_command(script_name):
-    """
-    Development:
-        Run the script using Python.
-
-    Packaged Windows EXE:
-        Run the script using Endpoint360Runtime.exe.
-    """
-
     if IS_PACKAGED:
         return [
             sys.executable,
             "--run-script",
-            script_name
+            script_name,
         ]
 
     return [
         sys.executable,
-        str(ROOT / script_name)
+        str(ROOT / script_name),
     ]
 
 
-# --------------------------------------------------
-# RUN AN ASSESSMENT MODULE
-# --------------------------------------------------
-
 def run_script(script_name):
-
     print(f"\nRunning {script_name}...", flush=True)
 
     result = subprocess.run(
         get_command(script_name),
         cwd=str(ROOT),
-        check=False
+        check=False,
     )
 
     if result.returncode != 0:
@@ -77,90 +52,135 @@ def run_script(script_name):
         )
 
 
-# --------------------------------------------------
-# CHECK IF DASHBOARD IS AVAILABLE
-# --------------------------------------------------
+def save_reports():
+    """
+    Preserve assessment reports outside the temporary
+    extraction directory used by a one-file EXE.
+    """
+
+    local_appdata = os.environ.get("LOCALAPPDATA")
+
+    if local_appdata:
+        destination = (
+            Path(local_appdata)
+            / "Nanobricks"
+            / "Endpoint360"
+            / "reports"
+        )
+    else:
+        destination = (
+            Path.home()
+            / "Nanobricks"
+            / "Endpoint360"
+            / "reports"
+        )
+
+    folders = [
+        "reports",
+        "collector/reports",
+        "security/reports",
+        "software/reports",
+        "updates/reports",
+        "health/reports",
+        "network/reports",
+        "compliance/reports",
+    ]
+
+    for folder in folders:
+        source = ROOT / folder
+
+        if not source.is_dir():
+            continue
+
+        output = destination / folder
+        output.mkdir(parents=True, exist_ok=True)
+
+        for report in source.glob("*.json"):
+            shutil.copy2(report, output / report.name)
+
+    print(f"\nReports saved to: {destination}", flush=True)
+
 
 def dashboard_is_running():
-
     try:
         with urlopen(DASHBOARD_URL, timeout=2) as response:
             return response.status == 200
-
     except Exception:
         return False
 
 
-# --------------------------------------------------
-# START THE LOCAL DASHBOARD
-# --------------------------------------------------
-
 def start_dashboard():
-
     print("\nStarting local dashboard...", flush=True)
 
     if dashboard_is_running():
-        print("A dashboard server is already running.")
-        return
+        raise RuntimeError(
+            "Port 8765 is already in use. "
+            "Close the previous Endpoint360 dashboard "
+            "before starting a new assessment."
+        )
 
     server = subprocess.Popen(
         get_command("dashboard_server.py"),
-        cwd=str(ROOT)
+        cwd=str(ROOT),
     )
 
-    # Check if the server starts successfully.
-    for _ in range(20):
-
+    for _ in range(30):
         if server.poll() is not None:
-            raise RuntimeError("Dashboard server exited.")
+            raise RuntimeError(
+                "Dashboard server exited unexpectedly."
+            )
 
         if dashboard_is_running():
-            return
+            return server
 
         time.sleep(0.5)
 
+    server.terminate()
     raise RuntimeError("Dashboard did not start.")
 
 
-# --------------------------------------------------
-# MAIN APPLICATION WORKFLOW
-# --------------------------------------------------
-
 def main():
-
     print("=" * 55)
     print(" NANOBRICKS ENDPOINT360 FREE")
     print("=" * 55)
+    print("Read-only Windows assessment")
+    print()
 
-    # Step 1: Collect Windows endpoint information.
+    # Execute all seven assessment collectors.
     run_script("endpoint360.py")
 
-    # Step 2: Evaluate security compliance.
+    # Evaluate the 17 compliance controls.
     run_script("compliance/compliance_engine.py")
 
-    # Step 3: Start the local dashboard.
-    start_dashboard()
+    # Preserve reports in the customer's local profile.
+    if IS_PACKAGED:
+        save_reports()
 
-    # Step 4: Open the dashboard in the browser.
+    # Start dashboard and keep the parent EXE running.
+    # This is important for PyInstaller onefile mode.
+    server = start_dashboard()
+
     webbrowser.open(DASHBOARD_URL)
 
-    print("\nDashboard:", DASHBOARD_URL)
+    print(f"\nDashboard: {DASHBOARD_URL}")
     print("Assessment completed successfully.")
-    print(
-        "Keep the dashboard server running "
-        "while using Endpoint360."
-    )
-
-
-# --------------------------------------------------
-# APPLICATION ENTRY POINT
-# --------------------------------------------------
-
-if __name__ == "__main__":
+    print("Keep this window open while using Endpoint360.")
+    print("Press Ctrl+C to stop the dashboard.")
 
     try:
-        main()
+        server.wait()
+    except KeyboardInterrupt:
+        print("\nStopping dashboard...")
+        server.terminate()
+        try:
+            server.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            server.kill()
 
+
+if __name__ == "__main__":
+    try:
+        main()
     except Exception as error:
         print(f"\nERROR: {error}")
         sys.exit(1)
