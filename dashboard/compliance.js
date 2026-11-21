@@ -1,4 +1,4 @@
-﻿"use strict";
+"use strict";
 
 /*
  * Nanobricks Endpoint360
@@ -61,6 +61,19 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
 
         const summary = report.Summary;
+
+        const score = summary.ComplianceScore;
+
+        const scoreText =
+            typeof score === "number" && Number.isFinite(score)
+                ? score.toFixed(1) + "%"
+                : "Not assessed";
+
+        setText("compliance-score", scoreText);
+        setText(
+            "compliance-evaluated",
+            summary.Evaluated ?? "Not available"
+        );
 
         setText("compliance-pass", summary.Pass ?? 0);
         setText("compliance-fail", summary.Fail ?? 0);
